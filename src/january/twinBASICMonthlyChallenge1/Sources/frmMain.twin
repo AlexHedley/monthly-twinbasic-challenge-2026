@@ -1,0 +1,130 @@
+[Description("")]
+[FormDesignerId("F99FB2DA-8AB6-429D-9135-0467CDD01790")]
+[PredeclaredId]
+Class frmMain
+
+    Sub New()
+    End Sub
+    
+    Dim fileName As String
+    Dim filePath As String
+    
+    Private Sub Form_Load()
+        fileName = "SysInfo.NFO"
+        filePath = App.Path & "\" & fileName
+        
+        lblAppPath = App.Path
+        File1.Path = App.Path
+        File1.Pattern = "*.NFO" ';*.txt
+        
+        Timer1.Interval = 5000
+        lblTimer.Visible = False
+    End Sub
+    
+    ' https://stackoverflow.com/a/3871182
+    Sub ParseXmlDocument(sFilePath As String)
+        Dim doc As New MSXML2.DOMDocument60 'MSXML2.DOMDocument
+        Dim success As Boolean
+        
+        success = doc.load(sFilePath)
+        
+        If success = False Then
+            'MsgBox doc.parseError.reason
+            lblStatus = doc.parseError.reason
+        Else
+            Dim nodeList As MSXML2.IXMLDOMNodeList
+
+            Set nodeList = doc.selectNodes("/MsInfo/Category")
+
+            If Not nodeList Is Nothing Then
+                Dim node As MSXML2.IXMLDOMNode
+                Dim dataNode As MSXML2.IXMLDOMNodeList
+                Dim dataNodeChild As MSXML2.IXMLDOMNode
+                Dim itemNode As MSXML2.IXMLDOMNode
+                Dim valueNode As MSXML2.IXMLDOMNode
+                Dim item As String
+                Dim value As String
+
+                For Each node In nodeList
+                    Set dataNode = node.selectNodes("Data")
+                    For Each dataNodeChild In dataNode
+                        Set itemNode = dataNodeChild.selectSingleNode("Item")
+                        item = itemNode.text
+                        Set valueNode = dataNodeChild.selectSingleNode("Value")
+                        value = valueNode.text
+
+                        txtItems = txtItems & item & vbNewLine
+                        txtValues = txtValues & value & vbNewLine
+                    Next dataNodeChild
+                    
+                Next node
+            End If
+            
+            ' Remove last new line
+            txtItems.Text = Left$(txtItems.Text, Len(txtItems.Text) - 1)
+            txtValues.Text = Left$(txtValues.Text, Len(txtValues.Text) - 1)
+            
+            Debug.Print "Done"
+            lblStatus = "File parsed."
+        End If
+        
+    End Sub
+    
+    Private Sub cmdCreateNFO_Click()
+        Dim retVal As Double
+        Dim command As String
+        
+        'command = "msinfo32 /nfo C:\TEMP\SysInfo.NFO"
+        command = "msinfo32 /nfo " & filePath
+        
+        Debug.Print "command:" & command
+        retVal = Shell("CMD.exe /c " & command, vbHide)
+        lblStatus = "Creating NFO file..."
+        Debug.Print "Shell retVal:" & retVal
+        
+        Timer1.Enabled = True
+        lblStatus = "Timer Enabled..."
+    End Sub
+    
+    Private Sub cmdGetSysInfo_Click()
+        ParseXmlDocument(filePath)
+    End Sub
+    
+    Private Sub cmdOpen_Click()
+        ' C:\Windows\System32\msinfo32.exe
+        Shell("CMD.exe /c " & filePath)
+    End Sub
+    
+    Private Sub Timer1_Timer()
+        lblTimer.Visible = Not lblTimer.Visible
+        Debug.Print DateTime.Now
+        
+        If (CheckForFile(filePath)) Then
+            Timer1.Enabled = False
+            lblStatus = "Timer Disabled..."
+            cmdGetSysInfo_Click
+        End If
+    End Sub
+    
+    Private Function CheckForFile(sFilePath As String) As Boolean
+        Dim fso As Object
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        
+        If fso.FileExists(sFilePath) Then
+            ' MsgBox "File Exist."
+            File1.Refresh
+            CheckForFile = True
+            cmdGetSysInfo.Enabled = True
+            cmdOpen.Enabled = True
+            lblStatus = "File Generated"
+        Else
+            ' MsgBox "File Doesn't Exist."
+        End If
+    End Function
+    
+    Private Sub File1_Click()
+        cmdGetSysInfo.Enabled = True
+        cmdOpen.Enabled = True
+    End Sub
+    
+End Class
